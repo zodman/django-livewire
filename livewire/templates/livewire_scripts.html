@@ -1,0 +1,39 @@
+<script src="{{STATIC_URL}}dist/livewire.js?id=c6f7d3682bc8d847a034" data-turbolinks-eval="false"></script>
+<script data-turbolinks-eval="false">
+    window.livewire = new Livewire();
+    window.livewire_app_url = '';
+    window.livewire_token = '{{ csrf_token }}';
+
+    document.addEventListener("DOMContentLoaded", function() {
+        window.livewire.start();
+    });
+
+    var firstTime = true;
+    document.addEventListener("turbolinks:load", function() {
+        /* We only want this handler to run AFTER the first load. */
+        if  (firstTime) {
+            firstTime = false;
+            return;
+        }
+
+        window.livewire.restart();
+    });
+
+    document.addEventListener("turbolinks:before-cache", function() {
+        document.querySelectorAll(`[wire\\:id]`).forEach(el => {
+            const component = el.__livewire;
+
+            const dataObject = {
+                data: component.data,
+                events: component.events,
+                children: component.children,
+                checksum: component.checksum,
+                name: component.name,
+                errorBag: component.errorBag,
+                redirectTo: component.redirectTo,
+            };
+
+            el.setAttribute('wire:initial-data', JSON.stringify(dataObject));
+        });
+    });
+</script>
