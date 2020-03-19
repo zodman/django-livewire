@@ -125,5 +125,5 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
-
+CSRF_HEADER_NAME="HTTP_X_CSRF_TOKEN"
 
