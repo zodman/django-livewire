@@ -1,4 +1,4 @@
 # Django-livewire WIP!!!
 
 
-!()[http://g.recordit.co/nHeGUyucIi.gif]
+![demo](http://g.recordit.co/nHeGUyucIi.gif)
