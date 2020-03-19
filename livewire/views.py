@@ -11,6 +11,8 @@ import htmlement
 import xml.etree.ElementTree as ET
 
 def livewire_message(request, component_name):
+    
+    # TODO: change for load the component dynamic
     from core.views import CounterLivewire
     inst = CounterLivewire()
     if request.method == "POST":
@@ -63,6 +65,9 @@ class LivewireComponent():
             if action_type == "callMethod":
                 method = payload.get("method")
                 params = payload.get("params",[])
+                """
+                RUN THIS IT IS REALLY SAFE ???
+                """
                 local_method = getattr(self, method)
                 local_method(*params)
 
