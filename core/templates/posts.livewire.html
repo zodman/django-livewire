@@ -1,0 +1,22 @@
+<div>
+    
+<h1 class="title">Posts</h1>
+
+<table class="table">
+    <tr>
+        <th>Title</th>
+        <th> Content </th>
+    </tr>
+
+
+{% for post in posts  %}
+<tr>
+    <td> {{post.title}}</td>
+    <td>{{post.content}}</td>
+</tr>
+
+{% endfor %}
+
+
+</table>
+</div>

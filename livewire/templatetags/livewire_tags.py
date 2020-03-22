@@ -1,5 +1,6 @@
 from django import template
 from livewire.views import LivewireComponent
+from livewire.utils import instance_class
 register = template.Library()
 
 @register.inclusion_tag("livewire_scripts.html", takes_context=True)
@@ -8,8 +9,5 @@ def livewire_scripts(context):
 
 @register.simple_tag
 def livewire(component,**kwargs):
-    # TODO: register Components by livewire.register(ComponentLivewire)
-    from core.views import CounterLivewire
-    livewire_component = CounterLivewire()
-    print(livewire_component.get_context())
+    livewire_component = instance_class(component, **kwargs)
     return livewire_component.render_initial()

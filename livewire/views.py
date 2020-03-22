@@ -3,35 +3,40 @@ from django.template.loader import render_to_string
 from django.utils.encoding import smart_str
 from django.utils.safestring import mark_safe
 from django.http import JsonResponse
+from django.conf import settings
 import random
 import string
 import json
 import importlib
 import htmlement
 import xml.etree.ElementTree as ET
+from .utils import get_id, get_component_name, instance_class
 
 def livewire_message(request, component_name):
-    
-    # TODO: change for load the component dynamic
-    from core.views import CounterLivewire
-    inst = CounterLivewire()
+    inst = instance_class(component_name)
     if request.method == "POST":
         body = json.loads(request.body)
         inst.parser_payload(body)
     return JsonResponse(inst.render(), safe=False)
 
-def get_id():
-    return ''.join(random.choice(string.ascii_lowercase) for i in range(20))
 
 class LivewireComponent(object):
     id = None
 
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
     def get_component_name(self):
-        return self.component_name.lower()
+        name = self.__class__.__name__.lower()
+        return name.replace("livewire","")
 
     def get_dom(self):
         context = self.get_context()
         return self._render_component(context)
+
+    def get_context(self):
+        kwargs = self.kwargs
+        return self.mount(**kwargs)
 
     def get_response(self):
         dom = self.get_dom()

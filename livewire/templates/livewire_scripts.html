@@ -1,7 +1,10 @@
 <script src="{{STATIC_URL}}dist/livewire.js?id=c6f7d3682bc8d847a034" data-turbolinks-eval="false"></script>
 <script data-turbolinks-eval="false">
     window.livewire = new Livewire();
-    window.livewire_app_url = '';
+    window.livewire_app_url = ""; 
+    {% comment %}
+        TODO: livewire_app_url prefix by settings
+    {% endcomment %} 
     window.livewire_token = '{{ csrf_token }}';
 
     document.addEventListener("DOMContentLoaded", function() {
