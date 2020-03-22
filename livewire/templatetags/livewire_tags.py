@@ -11,4 +11,5 @@ def livewire(component,**kwargs):
     # TODO: register Components by livewire.register(ComponentLivewire)
     from core.views import CounterLivewire
     livewire_component = CounterLivewire()
+    print(livewire_component.get_context())
     return livewire_component.render_initial()

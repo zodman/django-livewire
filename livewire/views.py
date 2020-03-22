@@ -23,16 +23,11 @@ def livewire_message(request, component_name):
 def get_id():
     return ''.join(random.choice(string.ascii_lowercase) for i in range(20))
 
-class LivewireComponent():
+class LivewireComponent(object):
     id = None
-    context = {}
 
     def get_component_name(self):
         return self.component_name.lower()
-
-    def get_context(self, **kwargs):
-        self.context.update(kwargs)
-        return self.context
 
     def get_dom(self):
         context = self.get_context()
@@ -55,9 +50,17 @@ class LivewireComponent():
             'checksum': "c24"
         }
 
+    def update_context(self, data_context):
+        context = self.get_context()
+        context.update(data_context)
+        for key, value in context.items():
+            setattr(self, key,value)
+        return context
+
+
     def parser_payload(self, payload):
         self.id = payload.get("id")
-        self.context.update(payload.get("data"))
+        self.update_context(payload.get("data"))
         action_queue = payload.get("actionQueue", [])
         for action in action_queue:
             action_type = action.get("type")
@@ -66,7 +69,10 @@ class LivewireComponent():
                 method = payload.get("method")
                 params = payload.get("params",[])
                 """
-                RUN THIS IT IS REALLY SAFE ???
+                TODO:
+                    RUN THIS IT IS REALLY SAFE ???
+                    https://www.toptal.com/python/python-design-patterns
+                    patterns
                 """
                 local_method = getattr(self, method)
                 local_method(*params)
@@ -94,12 +100,12 @@ class LivewireComponent():
         initial_data = {
             'id': self.id,
             'name': component,
-            'redirectTo':"",
+            'redirectTo': False,
             "events": [],
             "eventQueue": [],
             "dispatchQueue": [],
             "data": context, 
-            "children": [],
+            "children": {},
             "checksum": "9e4c194bb6aabf5f1" # TODO: checksum
         }
         return self._render_component(context, initial_data=initial_data)
