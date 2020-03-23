@@ -1,4 +1,3 @@
-from django.shortcuts import render
 from django.template.loader import render_to_string
 from django.utils.encoding import smart_str
 from django.utils.safestring import mark_safe
@@ -11,6 +10,7 @@ import importlib
 import htmlement
 import xml.etree.ElementTree as ET
 from .utils import get_id, get_component_name, instance_class
+from .utils import get_vars, snakecase
 
 def livewire_message(request, component_name):
     inst = instance_class(component_name)
@@ -21,30 +21,41 @@ def livewire_message(request, component_name):
 
 
 class LivewireComponent(object):
-    id = None
+    __id = None
+
 
     def __init__(self, **kwargs):
-        self.kwargs = kwargs
+        self.__kwargs = kwargs
 
     def get_component_name(self):
-        name = self.__class__.__name__.lower()
-        return name.replace("livewire","")
+        name = self.__class__.__name__.replace("Livewire","")
+        name = snakecase(name)
+        return name
 
     def get_dom(self):
         context = self.get_context()
         return self._render_component(context)
 
+    def fill(self, context):  # Livewire Compatility https://laravel-livewire.com/docs/properties
+        self.update_context(context)
+
     def get_context(self):
-        kwargs = self.kwargs
-        return self.mount(**kwargs)
+        kwargs = self.__kwargs
+        mount_result = {}
+        if hasattr(self, "mount"):   # Livewire Compatility
+            mount_result = self.mount(**kwargs)
+        params = get_vars(self)
+        for property in params:
+            mount_result[property] = getattr(self, property)
+        return mount_result
 
     def get_response(self):
         dom = self.get_dom()
         return {
-            'id': self.id,
+            'id': self.__id,
             'name': self.get_component_name(),
             'dom': dom,
-            'fromPrefetch':'',
+            'fromPrefetch': '',
             'redirectTo': '',
             'children': [],
             'dirtyInputs': [],
@@ -59,12 +70,12 @@ class LivewireComponent(object):
         context = self.get_context()
         context.update(data_context)
         for key, value in context.items():
-            setattr(self, key,value)
+            setattr(self, key, value)
         return context
 
 
     def parser_payload(self, payload):
-        self.id = payload.get("id")
+        self.__id = payload.get("id")
         self.update_context(payload.get("data"))
         action_queue = payload.get("actionQueue", [])
         for action in action_queue:
@@ -72,7 +83,7 @@ class LivewireComponent(object):
             payload = action.get("payload")
             if action_type == "callMethod":
                 method = payload.get("method")
-                params = payload.get("params",[])
+                params = payload.get("params", [])
                 """
                 TODO:
                     RUN THIS IT IS REALLY SAFE ???
@@ -81,37 +92,40 @@ class LivewireComponent(object):
                 """
                 local_method = getattr(self, method)
                 local_method(*params)
+            elif action_type == "syncInput":
+                data = {}
+                data[payload["name"]] = payload["value"]
+                self.update_context(data)
 
     def render(self):
         response = self.get_response()
         return response
 
-    def _render_component(self, context, initial_data={} ):
+    def _render_component(self, context, initial_data={}):
         component_name = self.get_component_name()
         component_render = render_to_string(f'{component_name}.livewire.html',
                                             context=self.get_context())
         root = htmlement.fromstring(component_render).find("div")
-        root.set('wire:id', self.id)
+        root.set('wire:id', self.__id)
         if initial_data:
-            root.set("wire:initial-data",json.dumps(initial_data))
+            root.set("wire:initial-data", json.dumps(initial_data))
         res = ET.tostring(root)
-        return  mark_safe(smart_str(res))
-
+        return mark_safe(smart_str(res))
 
     def render_initial(self):
-        self.id =  get_id()
+        self.__id = get_id()
         component = self.get_component_name()
         context = self.get_context()
         initial_data = {
-            'id': self.id,
+            'id': self.__id,
             'name': component,
             'redirectTo': False,
             "events": [],
             "eventQueue": [],
             "dispatchQueue": [],
-            "data": context, 
+            "data": context,
             "children": {},
-            "checksum": "9e4c194bb6aabf5f1" # TODO: checksum
+            "checksum": "9e4c194bb6aabf5f1"  # TODO: checksum
         }
         return self._render_component(context, initial_data=initial_data)
 

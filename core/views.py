@@ -10,8 +10,6 @@ def posts(request):
      }
     return render(request, "posts.html", context)
 
-
-
 class PostsLivewire(LivewireComponent):
 
     def mount(self, **kwargs):
@@ -30,8 +28,13 @@ class CounterLivewire(LivewireComponent):
     def increment(self, *args):
         self.count +=1
 
-    def mount(self, **kwargs):
-        return {
-            'count': self.count
-        }
+   
+
+class HelloworldLivewire(LivewireComponent):
+    message = "Hellowwwww mundo!"
+    
+
+class HelloworldDatabindLivewire(LivewireComponent):
+    message = "Hellowwwww mundo!"
+
 
