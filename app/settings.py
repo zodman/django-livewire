@@ -131,4 +131,43 @@ CSRF_HEADER_NAME="HTTP_X_CSRF_TOKEN"
 
 LIVEWIRE_COMPONENTS_PREFIX="core.views"
 
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+   'handlers': {
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose'
+        },
+    },
+    'loggers': {
+        # 'django': {
+            # 'handlers': ['console'],
+        # },
+        # 'django.request': {
+            # 'handlers': ['mail_admins'],
+            # 'level': 'ERROR',
+            # 'propagate': False,
+        # },
+       'core.views': {
+            'handlers': ['console', ],
+             'propagate': True,
+        },
+        'livewire.views': {
+            'handlers': ['console', ],
+             'propagate': True,
+        }
+    }
+}
 

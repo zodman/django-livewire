@@ -16,7 +16,8 @@ import re
 def get_vars(instance):
     props = set()
     for prop in dir(instance):
-        if not callable(getattr(instance, prop)) and not prop.startswith("__"):
+        if not callable(getattr(instance, prop)) and not prop.startswith("__") \
+                and not prop.startswith("_LivewireComponent"):
             props.add(prop)
     return props
 

@@ -8,9 +8,12 @@ import string
 import json
 import importlib
 import htmlement
+import logging
 import xml.etree.ElementTree as ET
 from .utils import get_id, get_component_name, instance_class
 from .utils import get_vars, snakecase
+
+log = logging.getLogger(__name__)
 
 def livewire_message(request, component_name):
     inst = instance_class(component_name)
@@ -34,6 +37,7 @@ class LivewireComponent(object):
 
     def get_dom(self):
         context = self.get_context()
+        log.debug(context)
         return self._render_component(context)
 
     def fill(self, context):  # Livewire Compatility https://laravel-livewire.com/docs/properties
@@ -42,11 +46,11 @@ class LivewireComponent(object):
     def get_context(self):
         kwargs = self.__kwargs
         mount_result = {}
-        if hasattr(self, "mount"):   # Livewire Compatility
-            mount_result = self.mount(**kwargs)
         params = get_vars(self)
         for property in params:
             mount_result[property] = getattr(self, property)
+        if hasattr(self, "mount") and callable(self.mount):   # Livewire Compatility
+            mount_result = self.mount(**kwargs)
         return mount_result
 
     def get_response(self):
@@ -68,22 +72,22 @@ class LivewireComponent(object):
 
     def update_context(self, data_context):
         context = self.get_context()
-        context.update(data_context)
+        if data_context:
+            context.update(data_context)
         for key, value in context.items():
             setattr(self, key, value)
         return context
 
-
     def parser_payload(self, payload):
         self.__id = payload.get("id")
-        self.update_context(payload.get("data"))
         action_queue = payload.get("actionQueue", [])
         for action in action_queue:
             action_type = action.get("type")
-            payload = action.get("payload")
+            action_payload = action.get("payload")
             if action_type == "callMethod":
-                method = payload.get("method")
-                params = payload.get("params", [])
+                self.update_context(payload.get("data"))
+                method = action_payload.get("method")
+                params = action_payload.get("params", [])
                 """
                 TODO:
                     RUN THIS IT IS REALLY SAFE ???
@@ -94,7 +98,7 @@ class LivewireComponent(object):
                 local_method(*params)
             elif action_type == "syncInput":
                 data = {}
-                data[payload["name"]] = payload["value"]
+                data[action_payload["name"]] = action_payload["value"]
                 self.update_context(data)
 
     def render(self):
@@ -104,7 +108,7 @@ class LivewireComponent(object):
     def _render_component(self, context, initial_data={}):
         component_name = self.get_component_name()
         component_render = render_to_string(f'{component_name}.livewire.html',
-                                            context=self.get_context())
+                                            context=context)
         root = htmlement.fromstring(component_render).find("div")
         root.set('wire:id', self.__id)
         if initial_data:
