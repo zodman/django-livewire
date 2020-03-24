@@ -48,11 +48,13 @@ class LivewireComponent(object):
     def get_context(self):
         kwargs = self.__kwargs
         mount_result = {}
+        # call mount if exists
+        if hasattr(self, "mount") and callable(self.mount):  # Livewire Compatility
+            mount_result = self.mount(**kwargs)
+
         params = get_vars(self)
         for property in params:
             mount_result[property] = getattr(self, property)
-        if hasattr(self, "mount") and callable(self.mount):  # Livewire Compatility
-            mount_result = self.mount(**kwargs)
         return mount_result
 
     def get_response(self):  # TODO: chnge to use render method on component view
@@ -76,11 +78,12 @@ class LivewireComponent(object):
         return json_response
 
     def update_context(self, data_context):
+        for key, value in data_context.items():
+            setattr(self, key, value)
+
         context = self.get_context()
         if data_context:
             context.update(data_context)
-        for key, value in context.items():
-            setattr(self, key, value)
         return context
 
     def parser_payload(self, request):

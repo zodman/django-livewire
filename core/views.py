@@ -52,7 +52,6 @@ class SearchPostsLivewire(LivewireComponent):
             posts = posts.filter(param)
         return {
             'posts': list(posts.values("id", "title", "content")),
-            'search': self.search  # TODO: before mount we must put the new value of the search for updates_query_string works and work on the url
         }
 
 
