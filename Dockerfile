@@ -6,4 +6,6 @@ COPY requirements.txt /code/
 RUN pip install -r requirements.txt
 COPY . /code/
 EXPOSE 8000
+RUN python manage.py migrate
+RUN python manage.py seed core
 CMD ["python","manage.py","gunicorn", "-b","0:8000"]
