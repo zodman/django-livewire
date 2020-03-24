@@ -43,16 +43,30 @@ class HelloworldDatabindLivewire(LivewireComponent):
 
 class SearchPostsLivewire(LivewireComponent):
     search = ""
-
+    updates_query_string = ("search", )
+    # TODO must recive the request
     def mount(self, **kwargs):
         posts = Post.objects.all()
         if self.search:
-            print("search:" + self.search)
-            posts = posts.filter(Q(title__icontains=self.search) | \
-	    		         Q(content__icontains=self.search))
-            print("c: {}".format(posts.count()))
-
+            param = Q(title__icontains=self.search) | Q(content__icontains=self.search)
+            posts = posts.filter(param)
         return {
-            'posts': list(posts.values("id", "title", "content"))
+            'posts': list(posts.values("id", "title", "content")),
+            'search': self.search  # TODO: before mount we must put the new value of the search for updates_query_string works and work on the url
         }
+
+
+class ShowPostLivewire(LivewireComponent):
+    post_id = None
+
+
+    def mount(self, **kwargs):
+        post_id = kwargs.get("post_id")
+        post = Post.objects.get(id=post_id)
+        self.post_id = post_id
+        return {
+            'post': {'title': post.title, 'content': post.content}
+        }
+
+
 
