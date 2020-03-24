@@ -7,11 +7,16 @@
 asgiref==3.2.5            # via django
 django-bsync==1.4.3       # via -r requirements.in
 django-seed==0.2.2        # via -r requirements.in
-django==3.0.4             # via -r requirements.in, django-seed
+django-webserver[gunicorn]==1.1.0  # via -r requirements.in
+django==3.0.4             # via -r requirements.in, django-seed, django-webserver
 faker==4.0.2              # via django-seed
+gunicorn==20.0.4          # via django-webserver
 htmlement==1.0.0          # via -r requirements.in
 python-dateutil==2.8.1    # via faker
 pytz==2019.3              # via django
 six==1.14.0               # via python-dateutil
 sqlparse==0.3.1           # via django
 text-unidecode==1.3       # via faker
+
+# The following packages are considered to be unsafe in a requirements file:
+# setuptools
