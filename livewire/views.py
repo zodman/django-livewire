@@ -20,76 +20,47 @@ def livewire_message(request, component_name):
     inst = instance_class(component_name)
     if request.method == "POST":
         inst.parser_payload(request)
-    return JsonResponse(inst.render(request), safe=False)
+    return JsonResponse(inst.render(), safe=False)
 
 
-class LivewireComponent(object):
-    __id = None
-    __request = None
 
-    def __init__(self, **kwargs):
-        self.__kwargs = kwargs
-
-    def get_component_name(self):
-        name = self.__class__.__name__.replace("Livewire", "")
-        name = snakecase(name)
-        return name
-
-    def get_dom(self):
-        context = self.get_context()
-        log.debug(context)
-        return self._render_component(context)
-
-    def fill(
-        self, context
-    ):  # Livewire Compatility https://laravel-livewire.com/docs/properties
-        self.update_context(context)
-
-    def get_context(self):
-        kwargs = self.__kwargs
-        mount_result = {}
-        # call mount if exists
-        if hasattr(self, "mount") and callable(self.mount):  # Livewire Compatility
-            mount_result = self.mount(**kwargs)
-
-        params = get_vars(self)
-        for property in params:
-            mount_result[property] = getattr(self, property)
-        return mount_result
-
-    def get_response(self):  # TODO: chnge to use render method on component view
-        dom = self.get_dom()
-        json_response = {
-            "id": self.__id,
-            "name": self.get_component_name(),
-            "dom": dom,
-            "fromPrefetch": "",
-            "redirectTo": "",
-            "children": [],
-            "dirtyInputs": [],
-            "data": self.get_context(),
+class LivewireTemplateTag:
+    def render_to_templatetag(self):
+        self.id = get_id()
+        component = self.get_component_name()
+        context = self.get_context_data()
+        initial_data = {
+            "id": self.id,
+            "name": component,
+            "redirectTo": False,
+            "events": [],
             "eventQueue": [],
             "dispatchQueue": [],
-            "events": [],
-            "checksum": "c24",
+            "data": context,
+            "children": {},
+            "checksum": "9e4c194bb6aabf5f1",  # TODO: checksum
         }
-        if hasattr(self, "updates_query_string"):
-            json_response.update({'updatesQueryString': self.updates_query_string})
-        return json_response
+        context["initial_data"] = initial_data
+        component_template = self.get_template_name()
+        return self.render_component(component_template, context)
+
+class LivewireProcessData:
+
+    def fill(self, context):  # Livewire Compatility https://laravel-livewire.com/docs/properties
+        self.update_context(context)
 
     def update_context(self, data_context):
         for key, value in data_context.items():
             setattr(self, key, value)
-
-        context = self.get_context()
+        context = self.get_context_data()
         if data_context:
             context.update(data_context)
         return context
 
     def parser_payload(self, request):
-        self.__request = request
+        self.request = request
         payload = json.loads(request.body)
-        self.__id = payload.get("id")
+        self.id = payload.get("id")
         action_queue = payload.get("actionQueue", [])
         for action in action_queue:
             action_type = action.get("type")
@@ -111,36 +82,80 @@ class LivewireComponent(object):
                 data[action_payload["name"]] = action_payload["value"]
                 self.update_context(data)
 
-    # TODO: chnge to use render method on component view
-    def render(self, request):
-        response = self.get_response()
-        return response
 
-    def _render_component(self, context, initial_data={}):
-        component_name = self.get_component_name()
+class LivewireComponent(LivewireTemplateTag, LivewireProcessData):
+    id = None
+
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+    def get_component_name(self):
+        name = self.__class__.__name__.replace("Livewire", "")
+        name = snakecase(name)
+        return name
+
+    def get_template_name(self):
+        return self.template_name
+
+
+    def get_context_data(self):
+        mount_result = {}
+        # call mount if exists
+        if hasattr(self, "mount") and callable(self.mount):  # Livewire Compatility
+            mount_result = self.mount()
+
+        params = get_vars(self)
+        for property in params:
+            mount_result[property] = getattr(self, property)
+        return mount_result
+
+    def get_dom(self):
+        context = self.get_context_data()
+        template_name = self.get_template_name()
+        return self.render_component(template_name, context)
+
+    def render(self, context={}):
+        """
+            A Livewire component's render method gets called on the initial page load AND every subsequent component update.
+
+        """
+        template_name = self.get_template_name()
+        return self.view(template_name, context)
+
+    def view(self, template_name, context):
+        dom = self.get_dom()
+        return self.render_to_response(template_name, dom)
+
+    def render_component(self, component_template, context={}):
+        initial_data = context.get("initial_data")
+        if initial_data:
+            del context["initial_data"]
         component_render = render_to_string(
-            f"{component_name}.livewire.html", context=context
+            component_template, context=context
         )
         root = htmlement.fromstring(component_render).find("div")
-        root.set("wire:id", self.__id)
+        root.set("wire:id", self.id)
         if initial_data:
             root.set("wire:initial-data", json.dumps(initial_data))
         res = ET.tostring(root)
         return mark_safe(smart_str(res))
 
-    def render_initial(self):
-        self.__id = get_id()
-        component = self.get_component_name()
-        context = self.get_context()
-        initial_data = {
-            "id": self.__id,
-            "name": component,
-            "redirectTo": False,
-            "events": [],
+    def render_to_response(self,  template_name, dom):  # TODO: chnge to use render method on component view
+        json_response = {
+            "id": self.id,
+            "name": self.get_component_name(),
+            "dom": dom,
+            "fromPrefetch": "",
+            "redirectTo": "",
+            "children": [],
+            "dirtyInputs": [],
+            "data": self.get_context_data(),
             "eventQueue": [],
             "dispatchQueue": [],
-            "data": context,
-            "children": {},
-            "checksum": "9e4c194bb6aabf5f1",  # TODO: checksum
+            "events": [],
+            "checksum": "c24",
         }
-        return self._render_component(context, initial_data=initial_data)
+        if hasattr(self, "updates_query_string"):
+            json_response.update({'updatesQueryString': self.updates_query_string})
+        return json_response

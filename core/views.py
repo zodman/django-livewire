@@ -24,6 +24,7 @@ class PostsLivewire(LivewireComponent):
 
 
 class CounterLivewire(LivewireComponent):
+    template_name="counter.livewire.html"
     count = 2
 
     def decrement(self, *args):
@@ -31,6 +32,7 @@ class CounterLivewire(LivewireComponent):
 
     def increment(self, *args):
         self.count += 1
+
 
 
 class HelloworldLivewire(LivewireComponent):
