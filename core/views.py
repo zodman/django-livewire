@@ -15,7 +15,7 @@ def posts(request):
 
 
 class PostsLivewire(LivewireComponent):
-
+    template_name = "posts.livewire.html"
     def mount(self, **kwargs):
         posts = kwargs.get("posts")
         return {
@@ -36,6 +36,7 @@ class CounterLivewire(LivewireComponent):
 
 
 class HelloworldLivewire(LivewireComponent):
+    template_name = "helloworld.livewire.html"
     message = "Hellowwwww mundo!"
 
 

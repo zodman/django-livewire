@@ -98,7 +98,6 @@ class LivewireComponent(LivewireTemplateTag, LivewireProcessData):
     def get_template_name(self):
         return self.template_name
 
-
     def get_context_data(self):
         mount_result = {}
         # call mount if exists
