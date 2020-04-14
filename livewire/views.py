@@ -109,9 +109,8 @@ class LivewireComponent(LivewireTemplateTag, LivewireProcessData):
             mount_result[property] = getattr(self, property)
         return mount_result
 
-    def get_dom(self):
+    def get_dom(self, template_name):
         context = self.get_context_data()
-        template_name = self.get_template_name()
         return self.render_component(template_name, context)
 
     def render(self, context={}):
@@ -123,7 +122,7 @@ class LivewireComponent(LivewireTemplateTag, LivewireProcessData):
         return self.view(template_name, context)
 
     def view(self, template_name, context):
-        dom = self.get_dom()
+        dom = self.get_dom(template_name)
         return self.render_to_response(template_name, dom)
 
     def render_component(self, component_template, context={}):

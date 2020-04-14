@@ -41,10 +41,12 @@ class HelloworldLivewire(LivewireComponent):
 
 
 class HelloworldDatabindLivewire(LivewireComponent):
+    template_name = "helloworld_databind.livewire.html"
     message = "Hellowwwww mundo!"
 
 
 class SearchPostsLivewire(LivewireComponent):
+    template_name="search_posts.livewire.html"
     search = ""
     updates_query_string = ("search", )
     # TODO must recive the request
