@@ -1,4 +1,4 @@
-import { kebabCase } from '@/util'
+import { kebabCase, debounce } from '@/util'
 import ModelAction from '@/action/model'
 import MethodAction from '@/action/method'
 import DOMElement from '@/dom/dom_element'
@@ -50,16 +50,20 @@ export default {
 
         store.callHook('interceptWireModelAttachListener', el, directive, component, debounceIf)
 
+        // File uploads are handled by UploadFiles.js.
+        if (el.rawNode().tagName.toLowerCase() === 'input' && el.rawNode().type === 'file') return
+
         const event = (el.rawNode().tagName.toLowerCase() === 'select')
             || ['checkbox', 'radio'].includes(el.rawNode().type)
             || directive.modifiers.includes('lazy')
             ? 'change' : 'input'
 
         // If it's a text input and not .lazy, debounce, otherwise fire immediately.
-        const handler = debounceIf(hasDebounceModifier || (el.isTextInput() && ! isLazy), e => {
+        let handler = debounceIf(hasDebounceModifier || (el.isTextInput() && ! isLazy), e => {
             const model = directive.value
             const el = new DOMElement(e.target)
-            const value = e instanceof CustomEvent
+            // We have to check for typeof e.detail here for IE 11.
+            const value = e instanceof CustomEvent && typeof e.detail != 'undefined'
                 ? e.detail
                 : el.valueFromInput(component)
 
@@ -93,9 +97,15 @@ export default {
                         if (selectedButNotPressedKeyModifiers.length > 0) return false;
                     }
 
+                    // Strip 'debounce' modifier and time modifiers from modifiers list
+                    let modifiers = directive.modifiers.filter(modifier => {
+                        return ! modifier.match(/debounce/)
+                            && ! modifier.match(/[0-9ms]/)
+                            && ! modifier.match(/[0-9s]/)
+                    })
+
                     // Only handle listener if no, or matching key modifiers are passed.
-                    return (directive.modifiers.length === 0
-                        || directive.modifiers.includes(kebabCase(e.key)))
+                    return modifiers.length === 0 || modifiers.includes(kebabCase(e.key))
                 })
                 break;
             case 'click':
@@ -155,16 +165,35 @@ export default {
                     return
                 }
 
+                if (method === '$emitSelf') {
+                    store.emitSelf(component.id, ...params)
+                    return
+                }
+
+                if (method === '$emitTo') {
+                    store.emitTo(...params)
+                    return
+                }
+
                 if (directive.value) {
                     component.addAction(new MethodAction(method, params, el))
                 }
             })
         }
 
-        el.addEventListener(event, handler)
+        const debounceIf = (condition, callback, time) => {
+            return condition
+                ? debounce(callback, time)
+                : callback
+        }
+
+        const hasDebounceModifier = directive.modifiers.includes('debounce')
+        const debouncedHandler = debounceIf(hasDebounceModifier, handler, directive.durationOr(150))
+
+        el.addEventListener(event, debouncedHandler)
 
         component.addListenerForTeardown(() => {
-            el.removeEventListener(event, handler)
+            el.removeEventListener(event, debouncedHandler)
         })
     },
 
