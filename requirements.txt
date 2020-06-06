@@ -8,7 +8,7 @@ asgiref==3.2.5            # via django
 django-bsync==1.4.3       # via -r requirements.in
 django-seed==0.2.2        # via -r requirements.in
 django-webserver[gunicorn]==1.1.0  # via -r requirements.in
-django==3.0.4             # via -r requirements.in, django-seed, django-webserver
+django==3.0.7             # via -r requirements.in, django-seed, django-webserver
 faker==4.0.2              # via django-seed
 gunicorn==20.0.4          # via django-webserver
 htmlement==1.0.0          # via -r requirements.in
