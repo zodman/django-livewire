@@ -8,6 +8,7 @@ import nodeInitializer from '@/node_initializer'
 import store from '@/Store'
 import PrefetchManager from './PrefetchManager'
 import EchoManager from './EchoManager'
+import UploadManager from './UploadManager'
 import MethodAction from '@/action/method'
 import ModelAction from '@/action/model'
 import MessageBus from '../MessageBus'
@@ -32,12 +33,14 @@ export default class Component {
         this.tearDownCallbacks = []
         this.prefetchManager = new PrefetchManager(this)
         this.echoManager = new EchoManager(this)
+        this.uploadManager = new UploadManager(this)
 
         store.callHook('componentInitialized', this)
 
         this.initialize()
 
         this.echoManager.registerListeners()
+        this.uploadManager.registerListeners()
 
         if (this.redirectTo) {
             this.redirect(this.redirectTo)
@@ -174,7 +177,11 @@ export default class Component {
             response.eventQueue.forEach(event => {
                 this.scopedListeners.call(event.event, ...event.params)
 
-                if (event.ancestorsOnly) {
+                if (event.selfOnly) {
+                    store.emitSelf(this.id, event.event, ...event.params)
+                } else if (event.to) {
+                    store.emitTo(event.to, event.event, ...event.params)
+                } else if (event.ancestorsOnly) {
                     store.emitUp(this.el, event.event, ...event.params)
                 } else {
                     store.emit(event.event, ...event.params)
@@ -202,6 +209,7 @@ export default class Component {
     forceRefreshDataBoundElementsMarkedAsDirty(dirtyInputs) {
         this.walk(el => {
             if (el.directives.missing('model')) return
+
             const modelValue = el.directives.get('model').value
 
             if (el.isFocused() && ! dirtyInputs.includes(modelValue)) return
@@ -248,7 +256,7 @@ export default class Component {
                 // This allows the tracking of elements by the "key" attribute, like in VueJs.
                 return node.hasAttribute(`wire:key`)
                     ? node.getAttribute(`wire:key`)
-                    // If no "key", then first check for "wire:id", then "wire:model", then "id"
+                    // If no "key", then first check for "wire:id", then "id"
                     : (node.hasAttribute(`wire:id`)
                         ? node.getAttribute(`wire:id`)
                         : node.id)
@@ -286,6 +294,8 @@ export default class Component {
                     return false
                 }
 
+                store.callHook('beforeElementUpdate', from, to, this)
+
                 const fromEl = new DOMElement(from)
 
                 // Honor the "wire:ignore" attribute or the .__livewire_ignore element property.
@@ -311,9 +321,16 @@ export default class Component {
 
             onElUpdated: (node) => {
                 this.morphChanges.changed.push(node)
+
+                store.callHook('afterElementUpdate', node, this)
             },
 
             onNodeAdded: (node) => {
+                if (node.tagName.toLowerCase() === 'script') {
+                    eval(node.innerHTML)
+                    return false
+                }
+
                 const el = new DOMElement(node)
 
                 const closestComponentId = el.closestRoot().getAttribute('id')
@@ -354,15 +371,36 @@ export default class Component {
     }
 
     modelSyncDebounce(callback, time) {
-        return (e) => {
-            clearTimeout(this.modelTimeout)
+        // Prepare yourself for what's happening here.
+        // Any text input with wire:model on it should be "debounced" by ~150ms by default.
+        // We can't use a simple debounce function because we need a way to clear all the pending
+        // debounces if a user submits a form or performs some other action.
+        // This is a modified debounce function that acts just like a debounce, except it stores
+        // the pending callbacks in a global property so we can "clear them" on command instead
+        // of waiting for their setTimeouts to expire. I know.
+        if (! this.modelDebounceCallbacks) this.modelDebounceCallbacks = []
 
-            this.modelTimeoutCallback = () => { callback(e) }
-            this.modelTimeout = setTimeout(() => {
+        // This is a "null" callback. Each wire:model will resister one of these upon initialization.
+        let callbackRegister = { callback: () => {} }
+        this.modelDebounceCallbacks.push(callbackRegister)
+
+        // This is a normal "timeout" for a debounce function.
+        var timeout
+
+        return (e) => {
+            clearTimeout(timeout)
+
+            timeout = setTimeout(() => {
                 callback(e)
-                this.modelTimeout = null
-                this.modelTimeoutCallback = null
+                timeout = undefined
+
+                // Because we just called the callback, let's return the
+                // callback register to it's normal "null" state.
+                callbackRegister.callback = () => {}
             }, time)
+
+            // Register the current callback in the register as a kind-of "escape-hatch".
+            callbackRegister.callback = () => { clearTimeout(timeout); callback(e); }
         }
     }
 
@@ -372,11 +410,12 @@ export default class Component {
         // If the enter key submits a form or something, the submission
         // will happen BEFORE the model input finishes syncing because
         // of the debounce. This makes sure to clear anything in the debounce queue.
-        if (this.modelTimeout) {
-            clearTimeout(this.modelTimeout)
-            this.modelTimeoutCallback()
-            this.modelTimeout = null
-            this.modelTimeoutCallback = null
+
+        if (this.modelDebounceCallbacks) {
+            this.modelDebounceCallbacks.forEach(callbackRegister => {
+                callbackRegister.callback()
+                callbackRegister = () => {}
+            })
         }
 
         callback()
@@ -388,5 +427,17 @@ export default class Component {
 
     tearDown() {
         this.tearDownCallbacks.forEach(callback => callback())
+    }
+
+    upload(name, file, finishCallback = () => {}, errorCallback = () => {}, progressCallback = () => {}) {
+        this.uploadManager.upload(name, file, finishCallback, errorCallback, progressCallback)
+    }
+
+    uploadMultiple(name, files, finishCallback = () => {}, errorCallback = () => {}, progressCallback = () => {}) {
+        this.uploadManager.uploadMultiple(name, files, finishCallback, errorCallback, progressCallback)
+    }
+
+    removeUpload(name, tmpFilename, finishCallback = () => {}, errorCallback = () => {}) {
+        this.uploadManager.removeUpload(name, tmpFilename, finishCallback, errorCallback)
     }
 }

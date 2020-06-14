@@ -5,6 +5,7 @@ export default function () {
         component.targetedLoadingElsByAction = {}
         component.genericLoadingEls = []
         component.currentlyActiveLoadingEls = []
+        component.currentlyActiveUploadLoadingEls = []
     })
 
     store.registerHook('elementInitialized', (el, component) => {
@@ -105,13 +106,41 @@ function setLoading(component, actions) {
 
     const allEls = component.genericLoadingEls.concat(actionTargetedEls)
 
-    allEls.forEach(({ el, directive }) => {
+    startLoading(allEls)
+
+    component.currentlyActiveLoadingEls = allEls
+}
+
+export function setUploadLoading(component, modelName) {
+    const actionTargetedEls = component.targetedLoadingElsByAction[modelName] || []
+
+    const allEls = component.genericLoadingEls.concat(actionTargetedEls)
+
+    startLoading(allEls)
+
+    component.currentlyActiveUploadLoadingEls = allEls
+}
+
+export function unsetUploadLoading(component) {
+    endLoading(component.currentlyActiveUploadLoadingEls)
+
+    component.currentlyActiveUploadLoadingEls = []
+}
+
+function unsetLoading(component) {
+    endLoading(component.currentlyActiveLoadingEls)
+
+    component.currentlyActiveLoadingEls = []
+}
+
+function startLoading(els) {
+    els.forEach(({ el, directive }) => {
         el = el.el // I'm so sorry @todo
 
         if (directive.modifiers.includes('class')) {
             // This is because wire:loading.class="border border-red"
             // wouldn't work with classList.add.
-            const classes = directive.value.split(' ')
+            const classes = directive.value.split(' ').filter(Boolean)
 
             if (directive.modifiers.includes('remove')) {
                 el.classList.remove(...classes)
@@ -132,16 +161,14 @@ function setLoading(component, actions) {
             }
         }
     })
-
-    component.currentlyActiveLoadingEls = allEls
 }
 
-function unsetLoading(component) {
-    component.currentlyActiveLoadingEls.forEach(({ el, directive }) => {
+function endLoading(els) {
+    els.forEach(({ el, directive }) => {
         el = el.el // I'm so sorry @todo
 
         if (directive.modifiers.includes('class')) {
-            const classes = directive.value.split(' ')
+            const classes = directive.value.split(' ').filter(Boolean)
 
             if (directive.modifiers.includes('remove')) {
                 el.classList.add(...classes)
@@ -158,6 +185,4 @@ function unsetLoading(component) {
             el.style.display = 'none'
         }
     })
-
-    component.currentlyActiveLoadingEls = []
 }
