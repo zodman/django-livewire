@@ -1,5 +1,0 @@
-django
-django-bsync
-django-seed
-htmlement
-django-webserver[gunicorn]
