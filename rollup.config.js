@@ -9,12 +9,12 @@ import resolve from "rollup-plugin-node-resolve"
 import outputManifest from 'rollup-plugin-output-manifest';
 
 export default {
-    input: 'livewire/static/livewire/index.js',
+    input: 'livewire/static/livewire/src/index.js',
     output: {
         format: 'umd',
         sourcemap: true,
         name: 'Livewire',
-        file: 'livewire/static/dist/livewire.js',
+        file: 'livewire/static/livewire/dist/livewire.js',
     },
     plugins: [
         resolve(),
@@ -34,13 +34,13 @@ export default {
         }),
         alias({
             entries: [
-                { find: '@', replacement: __dirname + '/livewire/static/livewire' },
+                { find: '@', replacement: __dirname + '/livewire/static/livewire/src' },
             ]
         }),
         // Mimic Laravel Mix's mix-manifest file for auto-cache-busting.
         outputManifest({
             serialize() {
-                const file = fs.readFileSync(__dirname + '/livewire/static/dist/livewire.js', 'utf8');
+                const file = fs.readFileSync(__dirname + '/livewire/static/livewire/dist/livewire.js', 'utf8');
                 const hash = md5(file).substr(0, 20);
 
                 return JSON.stringify({
