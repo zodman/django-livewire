@@ -7,6 +7,14 @@
     {% endcomment %} 
     window.livewire_token = '{{ csrf_token }}';
 
+  /* Make Alpine wait until Livewire is finished rendering to do its thing. */
+     window.deferLoadingAlpine = function (callback) {
+      window.addEventListener('livewire:load', function () {
+          callback();
+      });
+    };
+
+
     document.addEventListener("DOMContentLoaded", function() {
         window.livewire.start();
     });
