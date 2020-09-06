@@ -1,10 +1,7 @@
 from django.test import TestCase
 from django.template import Template, Context
-from .views import LivewireComponent
+from django.template.backends.django import Template as DjangoTemplate
 from unittest.mock import patch
-
-class HelloWorldLivewire(LivewireComponent):
-    template_name= "hello_world.html"
 
 class TestTT(TestCase):
     def test_rendered(self):
@@ -27,3 +24,11 @@ class TestTT(TestCase):
         rendered_template = template_str.render(Context())
         self.assertTrue("wire:id" in rendered_template)
         self.assertTrue("wire:initial-data" in rendered_template)
+        
+    def test_rendercontext(self):
+        template_str = Template(
+            "{% load livewire_tags %}"
+            "{% livewire 'hello_world' post_id=1 %}" 
+        )
+        rendered_template = template_str.render(Context())
+        self.assertTrue("> 1 <" in rendered_template)

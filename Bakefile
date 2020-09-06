@@ -1,7 +1,12 @@
+
+
 test:
-    coverage run $VIRTUAL_ENV/bin/django-admin test --settings=livewire_settings -v 3
+    coverage run $VIRTUAL_ENV/bin/django-admin test --settings=livewire_settings
     coverage report
-t: test
+t:
+    django-admin test --settings=livewire_settings -v 3
+
+    
 
 updatelivewire:
     set -ex 

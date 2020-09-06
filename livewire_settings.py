@@ -1,4 +1,6 @@
 import os
+BASE_DIR = os.path.dirname(__file__)
+
 MIDDLEWARE = (
     "django.middleware.common.CommonMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -19,10 +21,12 @@ INSTALLED_APPS = [
     "livewire",
 ]
 
+TEMPLATE_DIRS = [os.path.join(BASE_DIR, 'livewire','tests','templates'), ]
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "APP_DIRS": True,
+        "DIRS": TEMPLATE_DIRS,
         "OPTIONS": {
             "context_processors": [
                 "django.contrib.auth.context_processors.auth",
@@ -40,4 +44,4 @@ TEMPLATES = [
 SECRET_KEY = os.environ.get("SECRET_KEY", "too-secret-for-test")
 DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:",}}
 
-LIVEWIRE_COMPONENTS_PREFIX="livewire.tests"
+LIVEWIRE_COMPONENTS_PREFIX="livewire.tests.views"
