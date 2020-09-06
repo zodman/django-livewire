@@ -18,18 +18,18 @@ log = logging.getLogger(__name__)
 
 def livewire_message(request, component_name):
     inst = instance_class(component_name)
+    context = {}
     if request.method == "POST":
-        inst.parser_payload(request)
-    resp = inst.render()
+        context = inst.parser_payload(request)
+    resp = inst.render(**context)
     return JsonResponse(resp, safe=False)
 
 
-
 class LivewireTemplateTag:
-    def render_to_templatetag(self):
+    def render_to_templatetag(self, **kwargs):
         self.id = get_id()
         component = self.get_component_name()
-        context = self.get_context_data()
+        data = self.get_context_data(**kwargs)
         initial_data = {
             "id": self.id,
             "name": component,
@@ -37,14 +37,15 @@ class LivewireTemplateTag:
             "events": [],
             "eventQueue": [],
             "dispatchQueue": [],
-            "data": context,
+            "data": data,
             "children": {},
-            "effects":[],
+            "effects": [],
             "checksum": "9e4c194bb6aabf5f1",  # TODO: checksum
         }
+        context = {}
         context["initial_data"] = initial_data
         component_template = self.get_template_name()
-        self.render(context)
+        self.render(**context)
         return self.render_component(component_template, context)
 
 class LivewireProcessData:
@@ -64,6 +65,7 @@ class LivewireProcessData:
         self.request = request
         payload = json.loads(request.body)
         self.id = payload.get("id")
+        data = payload.get("data", {})
         action_queue = payload.get("actionQueue", [])
         for action in action_queue:
             action_type = action.get("type")
@@ -79,19 +81,15 @@ class LivewireProcessData:
                     patterns
                 """
                 local_method = getattr(self, method)
-                local_method(*params)
+                return local_method(*params)
             elif action_type == "syncInput":
-                data = {}
                 data[action_payload["name"]] = action_payload["value"]
-                self.update_context(data)
+                return self.update_context(data)
+
 
 
 class LivewireComponent(LivewireTemplateTag, LivewireProcessData):
     id = None
-
-    def __init__(self, **kwargs):
-        for key, value in kwargs.items():
-            setattr(self, key, value)
 
     def get_component_name(self):
         name = self.__class__.__name__.replace("Livewire", "")
@@ -101,22 +99,23 @@ class LivewireComponent(LivewireTemplateTag, LivewireProcessData):
     def get_template_name(self):
         return self.template_name
 
-    def get_context_data(self):
+    def get_context_data(self, **kwargs):
         mount_result = {}
         # call mount if exists
         if hasattr(self, "mount") and callable(self.mount):  # Livewire Compatility
             mount_result = self.mount()
-
         params = get_vars(self)
         for property in params:
             mount_result[property] = getattr(self, property)
+        if kwargs:
+            mount_result.update(kwargs)
         return mount_result
 
-    def get_dom(self, template_name):
-        context = self.get_context_data()
+    def get_dom(self, template_name, context):
+        context = self.get_context_data(**context)
         return self.render_component(template_name, context)
 
-    def render(self, context={}):
+    def render(self, **context):
         """
             A Livewire component's render method gets called on the initial page load AND every subsequent component update.
             TODO: to Implement
@@ -125,7 +124,7 @@ class LivewireComponent(LivewireTemplateTag, LivewireProcessData):
         return self.view(template_name, context)
 
     def view(self, template_name, context):
-        dom = self.get_dom(template_name)
+        dom = self.get_dom(template_name, context)
         return self.render_to_response(template_name, dom)
 
     def render_component(self, component_template, context={}):

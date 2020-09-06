@@ -16,5 +16,5 @@ def livewire_scripts(context):
 
 @register.simple_tag(takes_context=True)
 def livewire(context, component, **kwargs):
-    livewire_component = instance_class(component, **kwargs)
-    return livewire_component.render_to_templatetag()
+    livewire_component = instance_class(component)
+    return livewire_component.render_to_templatetag(**kwargs)

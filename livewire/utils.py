@@ -45,5 +45,5 @@ def instance_class(component_name, **kwargs):
     module = importlib.import_module(path)
     class_name = get_component_name(component_name)
     class_livewire = getattr(module, '{}Livewire'.format(class_name))
-    inst = class_livewire(**kwargs)
+    inst = class_livewire()
     return inst
