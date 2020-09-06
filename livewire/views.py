@@ -29,7 +29,7 @@ class LivewireTemplateTag:
     def render_to_templatetag(self, **kwargs):
         self.id = get_id()
         component = self.get_component_name()
-        data = self.get_data(**kwargs)
+        data = self.get_data()
         initial_data = {
             "id": self.id,
             "name": component,
@@ -42,11 +42,9 @@ class LivewireTemplateTag:
             "effects": [],   # TODO:
             "checksum": "9e4c194bb6aabf5f1",  # TODO: checksum
         }
-        context = {}
+        context = self.get_context_data(**kwargs)
         context["initial_data"] = initial_data
-        component_template = self.get_template_name()
-        self.render(**context)
-        return self.render_component(component_template, context)
+        return self.render_component(**context)
 
 class LivewireProcessData:
 
@@ -100,6 +98,7 @@ class LivewireComponent(LivewireTemplateTag, LivewireProcessData):
     def get_template_name(self):
         if self.template_name:
             return self.template_name
+        raise Exception("not template name set")  # 
 
     def get_data(self):
         mount_result = {}
@@ -110,6 +109,8 @@ class LivewireComponent(LivewireTemplateTag, LivewireProcessData):
         for property in params:
             mount_result[property] = getattr(self, property)
         return mount_result
+    def get_context_data(self, **kwargs):
+        return kwargs
 
     def get_dom(self, template_name, context):
         context = self.get_context_data(**context)
@@ -127,7 +128,8 @@ class LivewireComponent(LivewireTemplateTag, LivewireProcessData):
         dom = self.get_dom(template_name, context)
         return self.render_to_response(template_name, dom)
 
-    def render_component(self, component_template, context={}):
+    def render_component(self, **context):
+        component_template = self.get_template_name()
         initial_data = context.get("initial_data")
         if initial_data:
             del context["initial_data"]

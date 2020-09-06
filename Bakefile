@@ -1,5 +1,7 @@
 test:
-    django-admin test --settings=livewire_settings -v 3
+    coverage run $VIRTUAL_ENV/bin/django-admin test --settings=livewire_settings -v 3
+    coverage report
+t: test
 
 updatelivewire:
     set -ex 
@@ -13,3 +15,5 @@ updatelivewire:
     cp -rf $TMPDIR/livewire-${VERSION}/js/* $DESTDIR/src
     mkdir -p $DESTDIR/dist/
     npm run build
+env:
+    env

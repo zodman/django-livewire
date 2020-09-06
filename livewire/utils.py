@@ -9,7 +9,6 @@ import string
 import importlib
 import re
 
-
 IGNORE = ("id", "template_name", "request")
 
 
@@ -17,9 +16,9 @@ def get_vars(instance):
     props = set()
     for prop in dir(instance):
         if not callable(getattr(instance, prop)) and \
-                not "__" in prop  and \
-                not prop in IGNORE \
-                and not prop.startswith("_LivewireComponent"):
+                    "__" not in prop and \
+                    prop not in IGNORE \
+                    and not prop.startswith("_LivewireComponent"):
             props.add(prop)
     return props
 
