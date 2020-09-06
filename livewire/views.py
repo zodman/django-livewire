@@ -29,17 +29,17 @@ class LivewireTemplateTag:
     def render_to_templatetag(self, **kwargs):
         self.id = get_id()
         component = self.get_component_name()
-        data = self.get_context_data(**kwargs)
+        data = self.get_data(**kwargs)
         initial_data = {
             "id": self.id,
             "name": component,
             "redirectTo": False,
-            "events": [],
-            "eventQueue": [],
-            "dispatchQueue": [],
+            "events": [],  # TODO: 
+            "eventQueue": [], # TODO:
+            "dispatchQueue": [], # TODO
             "data": data,
-            "children": {},
-            "effects": [],
+            "children": {},   # TODO:
+            "effects": [],   # TODO:
             "checksum": "9e4c194bb6aabf5f1",  # TODO: checksum
         }
         context = {}
@@ -90,6 +90,7 @@ class LivewireProcessData:
 
 class LivewireComponent(LivewireTemplateTag, LivewireProcessData):
     id = None
+    template_name = None
 
     def get_component_name(self):
         name = self.__class__.__name__.replace("Livewire", "")
@@ -97,9 +98,10 @@ class LivewireComponent(LivewireTemplateTag, LivewireProcessData):
         return name
 
     def get_template_name(self):
-        return self.template_name
+        if self.template_name:
+            return self.template_name
 
-    def get_context_data(self, **kwargs):
+    def get_data(self):
         mount_result = {}
         # call mount if exists
         if hasattr(self, "mount") and callable(self.mount):  # Livewire Compatility
@@ -107,8 +109,6 @@ class LivewireComponent(LivewireTemplateTag, LivewireProcessData):
         params = get_vars(self)
         for property in params:
             mount_result[property] = getattr(self, property)
-        if kwargs:
-            mount_result.update(kwargs)
         return mount_result
 
     def get_dom(self, template_name, context):
@@ -150,7 +150,7 @@ class LivewireComponent(LivewireTemplateTag, LivewireProcessData):
             "redirectTo": "",
             "children": [],
             "dirtyInputs": [],
-            "data": self.get_context_data(),
+            "data": self.get_data(),
             "eventQueue": [],
             "dispatchQueue": [],
             "events": [],

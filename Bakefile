@@ -1,0 +1,15 @@
+test:
+    django-admin test --settings=livewire_settings -v 3
+
+updatelivewire:
+    set -ex 
+    TMPDIR=$(mktemp -d )
+    DESTDIR=livewire/static/livewire
+    VERSION=1.x
+    wget https://github.com/livewire/livewire/archive/${VERSION}.zip -O $TMPDIR/master.zip
+
+    7z x $TMPDIR/master.zip -o$TMPDIR
+    rm -rf $DESTDIR/src/*
+    cp -rf $TMPDIR/livewire-${VERSION}/js/* $DESTDIR/src
+    mkdir -p $DESTDIR/dist/
+    npm run build
