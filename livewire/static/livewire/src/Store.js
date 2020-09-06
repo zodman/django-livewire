@@ -10,7 +10,6 @@ const store = {
     livewireIsInBackground: false,
     livewireIsOffline: false,
     sessionHasExpired: false,
-    requestIsOut: false,
     hooks: HookManager,
     directives: DirectiveManager,
     onErrorCallback: () => {},
@@ -69,7 +68,7 @@ const store = {
     emitSelf(componentId, event, ...params) {
         let component = this.findComponent(componentId)
 
-        if (component.listeners.includes(event)) {
+        if (component.events.includes(event)) {
             component.addAction(new EventAction(event, params))
         }
     },
@@ -78,7 +77,7 @@ const store = {
         let components = this.getComponentsByName(componentName)
 
         components.forEach(component => {
-            if (component.listeners.includes(event)) {
+            if (component.events.includes(event)) {
                 component.addAction(new EventAction(event, params))
             }
         })
@@ -97,7 +96,7 @@ const store = {
 
         return this.components().filter(component => {
             return (
-                component.listeners.includes(event) &&
+                component.events.includes(event) &&
                 parentIds.includes(component.id)
             )
         })
@@ -105,7 +104,7 @@ const store = {
 
     componentsListeningForEvent(event) {
         return this.components().filter(component => {
-            return component.listeners.includes(event)
+            return component.events.includes(event)
         })
     },
 

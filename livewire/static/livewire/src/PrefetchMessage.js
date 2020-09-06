@@ -6,6 +6,21 @@ export default class extends Message {
     }
 
     get prefetchId() {
-        return this.updateQueue[0].toId()
+        return this.actionQueue[0].toId()
+    }
+
+    payload() {
+        return {
+            fromPrefetch: this.prefetchId,
+            ...super.payload()
+        }
+    }
+
+    storeResponse(payload) {
+        super.storeResponse(payload)
+
+        this.response.fromPrefetch = payload.fromPrefetch
+
+        return this.response
     }
 }

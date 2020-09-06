@@ -20,7 +20,8 @@ def livewire_message(request, component_name):
     inst = instance_class(component_name)
     if request.method == "POST":
         inst.parser_payload(request)
-    return JsonResponse(inst.render(), safe=False)
+    resp = inst.render()
+    return JsonResponse(resp, safe=False)
 
 
 
@@ -38,10 +39,12 @@ class LivewireTemplateTag:
             "dispatchQueue": [],
             "data": context,
             "children": {},
+            "effects":[],
             "checksum": "9e4c194bb6aabf5f1",  # TODO: checksum
         }
         context["initial_data"] = initial_data
         component_template = self.get_template_name()
+        self.render(context)
         return self.render_component(component_template, context)
 
 class LivewireProcessData:
@@ -116,7 +119,7 @@ class LivewireComponent(LivewireTemplateTag, LivewireProcessData):
     def render(self, context={}):
         """
             A Livewire component's render method gets called on the initial page load AND every subsequent component update.
-
+            TODO: to Implement
         """
         template_name = self.get_template_name()
         return self.view(template_name, context)
@@ -152,6 +155,7 @@ class LivewireComponent(LivewireTemplateTag, LivewireProcessData):
             "eventQueue": [],
             "dispatchQueue": [],
             "events": [],
+            "events":[],
             "checksum": "c24",
         }
         if hasattr(self, "updates_query_string"):

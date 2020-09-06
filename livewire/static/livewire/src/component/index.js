@@ -1,71 +1,83 @@
 import Message from '@/Message'
 import PrefetchMessage from '@/PrefetchMessage'
-import { dispatch, debounce, walk } from '@/util'
+import { debounce, walk } from '@/util'
 import morphdom from '@/dom/morphdom'
 import DOM from '@/dom/dom'
 import DOMElement from '@/dom/dom_element'
 import nodeInitializer from '@/node_initializer'
 import store from '@/Store'
 import PrefetchManager from './PrefetchManager'
+import EchoManager from './EchoManager'
 import UploadManager from './UploadManager'
 import MethodAction from '@/action/method'
 import ModelAction from '@/action/model'
-import DeferredModelAction from '@/action/deferred-model'
 import MessageBus from '../MessageBus'
 
 export default class Component {
     constructor(el, connection) {
         el.rawNode().__livewire = this
-
         this.id = el.getAttribute('id')
-
-        this.connection = connection
-
-        const initialData = JSON.parse(this.el.getAttribute('initial-data'))
-        this.el.removeAttribute(name)
-
-        this.fingerprint = initialData.fingerprint
-        this.serverMemo = initialData.serverMemo
-        this.effects = initialData.effects
-
-        this.listeners = this.effects.listeners
-        this.updateQueue = []
-        this.deferredActions = {}
+        const initialData = JSON.parse(
+            this.extractLivewireAttribute('initial-data')
+        )
+        this.data = initialData.data || {}
+        this.events = initialData.events || []
+        this.children = initialData.children || {}
+        this.checksum = initialData.checksum || ''
+        this.locale = initialData.locale || null
+        this.name = initialData.name || ''
+        this.errorBag = initialData.errorBag || {}
+        this.redirectTo = initialData.redirectTo || false
+        ;(this.scopedListeners = new MessageBus()),
+            (this.connection = connection)
+        this.actionQueue = []
+        this.messageInTransit = null
+        this.modelTimeout = null
         this.tearDownCallbacks = []
-        this.messageInTransit = undefined
-
-        this.scopedListeners = new MessageBus()
         this.prefetchManager = new PrefetchManager(this)
+        this.echoManager = new EchoManager(this)
         this.uploadManager = new UploadManager(this)
-        this.watchers = {}
 
         store.callHook('componentInitialized', this)
 
         this.initialize()
 
+        this.echoManager.registerListeners()
         this.uploadManager.registerListeners()
 
-        if (this.effects.redirect) return this.redirect(this.effects.redirect)
+        if (this.redirectTo) {
+            this.redirect(this.redirectTo)
+
+            return
+        }
     }
 
     get el() {
         return DOM.getByAttributeAndValue('id', this.id)
     }
 
-    get name() {
-        return this.fingerprint.name
+    get root() {
+        return this.el
     }
 
-    get data() {
-        return this.serverMemo.data
+    extractLivewireAttribute(name) {
+        const value = this.el.getAttribute(name)
+
+        this.el.removeAttribute(name)
+
+        return value
     }
 
     initialize() {
         this.walk(
-            // Will run for every node in the component tree (not child component nodes).
-            el => nodeInitializer.initialize(el, this),
-            // When new component is encountered in the tree, add it.
-            el => store.addComponent(new Component(el, this.connection))
+            el => {
+                // Will run for every node in the component tree (not child component nodes).
+                nodeInitializer.initialize(el, this)
+            },
+            el => {
+                // When new component is encountered in the tree, add it.
+                store.addComponent(new Component(el, this.connection))
+            }
         )
     }
 
@@ -73,53 +85,18 @@ export default class Component {
         // The .split() stuff is to support dot-notation.
         return name
             .split('.')
-            .reduce((carry, segment) => carry[segment], this.data)
-    }
-
-    updateDataAndMemo(newData, newMemo) {
-        Object.entries(newData || {}).forEach(([key, value]) => {
-            let oldValue = this.serverMemo.data[key]
-
-            if (oldValue !== undefined && oldValue !== value) {
-                this.serverMemo.data[key] = value
-
-                let watchers = this.watchers[key] || []
-
-                watchers.forEach(watcher => watcher(value))
-            }
-        })
-
-        // Only update the memo properties that exist in the returning payload.
-        Object.entries(newMemo).forEach(([key, value]) => {
-            if (key === 'data') return
-
-            this.serverMemo[key] = value
-        })
-    }
-
-    watch(name, callback) {
-        if (!this.watchers[name]) this.watchers[name] = []
-
-        this.watchers[name].push(callback)
+            .reduce(
+                (carry, dotSeperatedSegment) => carry[dotSeperatedSegment],
+                this.data
+            )
     }
 
     set(name, value) {
-        this.addAction(new MethodAction('$set', [name, value], this.el))
-    }
-
-    sync(name, value) {
         this.addAction(new ModelAction(name, value, this.el))
     }
 
     call(method, ...params) {
-        return new Promise((resolve, reject) => {
-            let action = new MethodAction(method, params, this.el)
-
-            this.addAction(action)
-
-            action.onResolve(thing => resolve(thing))
-            action.onReject(thing => reject(thing))
-        })
+        this.addAction(new MethodAction(method, params, this.el))
     }
 
     on(event, callback) {
@@ -127,12 +104,6 @@ export default class Component {
     }
 
     addAction(action) {
-        if (action instanceof DeferredModelAction) {
-            this.deferredActions[action.name] = action
-
-            return
-        }
-
         if (
             this.prefetchManager.actionHasPrefetch(action) &&
             this.prefetchManager.actionPrefetchResponseHasBeenReceived(action)
@@ -148,7 +119,7 @@ export default class Component {
             return
         }
 
-        this.updateQueue.push(action)
+        this.actionQueue.push(action)
 
         // This debounce is here in-case two events fire at the "same" time:
         // For example: if you are listening for a click on element A,
@@ -166,82 +137,56 @@ export default class Component {
     fireMessage() {
         if (this.messageInTransit) return
 
-        Object.entries(this.deferredActions).forEach(([modelName, action]) => {
-            this.updateQueue.unshift(action)
-        })
-        this.deferredActions = {}
+        this.messageInTransit = new Message(this, this.actionQueue)
 
-        this.messageInTransit = new Message(this, this.updateQueue)
+        this.connection.sendMessage(this.messageInTransit)
 
-        let sendMessage = () => {
-            this.connection.sendMessage(this.messageInTransit)
+        store.callHook('messageSent', this, this.messageInTransit)
 
-            store.callHook('messageSent', this, this.messageInTransit)
-
-            this.updateQueue = []
-        }
-
-        if (window.capturedRequestsForDusk) {
-            window.capturedRequestsForDusk.push(sendMessage)
-        } else {
-            sendMessage()
-        }
+        this.actionQueue = []
     }
 
     messageSendFailed() {
         store.callHook('messageFailed', this)
 
-        this.messageInTransit.reject()
-
         this.messageInTransit = null
     }
 
-    receiveMessage(message, payload) {
-        var response = message.storeResponse(payload)
-
-        if (message instanceof PrefetchMessage) return
+    receiveMessage(payload) {
+        var response = this.messageInTransit.storeResponse(payload)
 
         this.handleResponse(response)
 
         // This bit of logic ensures that if actions were queued while a request was
         // out to the server, they are sent when the request comes back.
-        if (this.updateQueue.length > 0) {
+        if (this.actionQueue.length > 0) {
             this.fireMessage()
         }
-
-        dispatch('livewire:update')
     }
 
     handleResponse(response) {
-        this.updateDataAndMemo(response.serverMemo.data, response.serverMemo)
+        this.data = response.data
+        this.checksum = response.checksum
+        this.children = response.children
+        this.errorBag = response.errorBag
 
         store.callHook('responseReceived', this, response)
 
         // This means "$this->redirect()" was called in the component. let's just bail and redirect.
-        if (response.effects.redirect) {
-            this.redirect(response.effects.redirect)
+        if (response.redirectTo) {
+            this.redirect(response.redirectTo)
 
             return
         }
 
-        store.callHook('responseReceived', this, response)
+        this.replaceDom(response.dom, response.dirtyInputs)
 
-        if (response.effects.html) {
-            this.replaceDom(response.effects.html)
-        }
-
-        if (response.effects.dirty) {
-            this.forceRefreshDataBoundElementsMarkedAsDirty(
-                response.effects.dirty
-            )
-        }
-
-        this.messageInTransit.resolve()
+        this.forceRefreshDataBoundElementsMarkedAsDirty(response.dirtyInputs)
 
         this.messageInTransit = null
 
-        if (response.effects.emits && response.effects.emits.length > 0) {
-            response.effects.emits.forEach(event => {
+        if (response.eventQueue && response.eventQueue.length > 0) {
+            response.eventQueue.forEach(event => {
                 this.scopedListeners.call(event.event, ...event.params)
 
                 if (event.selfOnly) {
@@ -256,11 +201,8 @@ export default class Component {
             })
         }
 
-        if (
-            response.effects.dispatches &&
-            response.effects.dispatches.length > 0
-        ) {
-            response.effects.dispatches.forEach(event => {
+        if (response.dispatchQueue && response.dispatchQueue.length > 0) {
+            response.dispatchQueue.forEach(event => {
                 const data = event.data ? event.data : {}
                 const e = new CustomEvent(event.event, {
                     bubbles: true,
@@ -320,6 +262,10 @@ export default class Component {
         this.connection.sendMessage(message)
     }
 
+    receivePrefetchMessage(payload) {
+        this.prefetchManager.storeResponseInMessageForPayload(payload)
+    }
+
     handleMorph(dom) {
         this.morphChanges = { changed: [], added: [], removed: [] }
 
@@ -341,15 +287,7 @@ export default class Component {
             },
 
             onBeforeNodeDiscarded: node => {
-                // If the node is from x-if with a transition.
-                if (
-                    node.__x_inserted_me &&
-                    Array.from(node.attributes).some(attr =>
-                        /x-transition/.test(attr.name)
-                    )
-                ) {
-                    return false
-                }
+                //
             },
 
             onNodeDiscarded: node => {
@@ -388,19 +326,6 @@ export default class Component {
                     fromEl.rawNode().tagName.toUpperCase() === 'SELECT'
                 ) {
                     to.selectedIndex = -1
-                }
-
-                // If the element is x-show.transition.
-                if (
-                    Array.from(from.attributes)
-                        .map(attr => attr.name)
-                        .some(
-                            name =>
-                                /x-show.transition/.test(name) ||
-                                /x-transition/.test(name)
-                        )
-                ) {
-                    from.__livewire_transition = true
                 }
 
                 // Honor the "wire:ignore" attribute or the .__livewire_ignore element property.
@@ -595,54 +520,5 @@ export default class Component {
             finishCallback,
             errorCallback
         )
-    }
-
-    get $wire() {
-        if (this.dollarWireProxy) return this.dollarWireProxy
-
-        let refObj = {}
-
-        let component = this
-
-        return (this.dollarWireProxy = new Proxy(refObj, {
-            get(object, property) {
-                if (property === 'entangle') {
-                    return name => ({ livewireEntangle: name })
-                }
-
-                // Forward public API methods right away.
-                if (['get', 'set', 'call', 'on'].includes(property)) {
-                    return function (...args) {
-                        return component[property].apply(component, args)
-                    }
-                }
-
-                // If the property exists on the data, return it.
-                let getResult = component.get(property)
-
-                // If the property does not exist, try calling the method on the class.
-                if (getResult === undefined) {
-                    return function (...args) {
-                        return component.call.apply(component, [
-                            property,
-                            ...args,
-                        ])
-                    }
-                }
-
-                return getResult
-            },
-
-            set: function (obj, prop, value) {
-                if (window.Alpine) {
-                    // This prevents a "blip" when using x-model to set a Livewire property.
-                    Alpine.ignoreFocusedForValueBinding = true
-                }
-
-                component.set(prop, value)
-
-                return true
-            },
-        }))
     }
 }
