@@ -44,7 +44,7 @@ class LivewireTemplateTag:
         }
         context = self.get_context_data(**kwargs)
         context["initial_data"] = initial_data
-        return self.render_component(**context)
+        return self.render(**context)
 
 class LivewireProcessData:
 
@@ -122,10 +122,12 @@ class LivewireComponent(LivewireTemplateTag, LivewireProcessData):
             A Livewire component's render method gets called on the initial page load AND every subsequent component update.
             TODO: to Implement
         """
-        template_name = self.get_template_name()
-        return self.view(template_name, context)
+        return self.view(context)
+    def view(self, context):
+        return self.render_component(**context)
 
-    def view(self, template_name, context):
+    def __view(self, context):
+        template_name = self.get_template_name()
         dom = self.get_dom(template_name, context)
         return self.render_to_response(template_name, dom)
 
