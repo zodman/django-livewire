@@ -123,6 +123,7 @@ class LivewireComponent(LivewireTemplateTag, LivewireProcessData):
             TODO: to Implement
         """
         return self.view(context)
+    
     def view(self, context):
         return self.render_component(**context)
 
