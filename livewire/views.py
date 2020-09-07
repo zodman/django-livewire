@@ -109,6 +109,7 @@ class LivewireComponent(LivewireTemplateTag, LivewireProcessData):
         for property in params:
             mount_result[property] = getattr(self, property)
         return mount_result
+
     def get_context_data(self, **kwargs):
         return kwargs
 
@@ -130,9 +131,11 @@ class LivewireComponent(LivewireTemplateTag, LivewireProcessData):
 
     def render_component(self, **context):
         component_template = self.get_template_name()
+        data = self.get_data()
         initial_data = context.get("initial_data")
         if initial_data:
             del context["initial_data"]
+        context.update(data)
         component_render = render_to_string(
             component_template, context=context
         )
